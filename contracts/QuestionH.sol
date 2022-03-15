@@ -58,7 +58,7 @@ contract QuestionH {
         * Caller will receive the bounty associated with the job
 
         Params
-        * jobId
+        * 
     */
     function executeJob(address target, uint value, bytes calldatas, uint delay) external {
         uint jobId = hashJob(target, value, calldatas, msg.sender);
@@ -66,11 +66,15 @@ contract QuestionH {
 
         require(j.id > 0, "QuestionH::executeJob: INVALID_JOB");
         require(block.timestamp >= j.executeAt, "QuestionH::executeJob: JOB_INACTIVE");
+        require(!j.executed, "QuestionH::executeJob: JOB_ALREADY_EXECUTED");
+
+        j.executed = true;
 
         (bool success, bytes memory returndata) = target.call{value: value}(calldatas);
 
         if (success) {
             emit JobExecuted(msg.sender, jobId);
+            msg.sender.call{value: j.bounty}("");
         } else if (returndata.length > 0) {
             // Taken from OZ's Address.sol contract
             assembly {
@@ -81,6 +85,6 @@ contract QuestionH {
         else {
             // No revert reason given
             revert("Call reverted without message");
-}
-}
+        }
+    }    
 }
