@@ -17,7 +17,8 @@ contract QuestionH {
 
     mapping(uint => Job) jobs;
 
-    event JobSubmitted(address indexed submitter, uint indexed jobId);
+    event JobSubmitted(address indexed submitter, uint indexed jobId, address target, uint value, bytes calldatas, uint delay);
+    event JobExecuted(address indexed executer, uint indexed jobId);
 
     // Taken from OpenZeppelin
     function hashJob(
@@ -48,7 +49,7 @@ contract QuestionH {
         j.bounty = msg.value;
         j.executeAt = block.timestamp + delay;
 
-        emit JobSubmitted(msg.sender, jobId);
+        emit JobSubmitted(msg.sender, jobId, target, value, calldatas, delay);
     }
 
     /**
@@ -59,7 +60,27 @@ contract QuestionH {
         Params
         * jobId
     */
-    function executeJob() external {
+    function executeJob(address target, uint value, bytes calldatas, uint delay) external {
+        uint jobId = hashJob(target, value, calldatas, msg.sender);
+        Job storage j = jobs[jobId];
 
-    }
+        require(j.id > 0, "QuestionH::executeJob: INVALID_JOB");
+        require(block.timestamp >= j.executeAt, "QuestionH::executeJob: JOB_INACTIVE");
+
+        (bool success, bytes memory returndata) = target.call{value: value}(calldatas);
+
+        if (success) {
+            emit JobExecuted(msg.sender, jobId);
+        } else if (returndata.length > 0) {
+            // Taken from OZ's Address.sol contract
+            assembly {
+                let returndata_size := mload(returndata)
+                revert(add(32, returndata), returndata_size)
+            }
+        }
+        else {
+            // No revert reason given
+            revert("Call reverted without message");
+}
+}
 }
