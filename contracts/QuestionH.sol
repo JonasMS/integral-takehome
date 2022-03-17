@@ -25,10 +25,11 @@ contract QuestionH {
     function hashJob(
         address target,
         uint value,
-        bytes calldatas,
-        address submitter,
+        bytes calldata calldatas,
+        uint delay,
+        address submitter
     ) public pure virtual returns (uint256) {
-        return uint256(keccak256(abi.encode(target, value, calldatas, submitter)));
+        return uint256(keccak256(abi.encode(target, value, calldatas, delay, submitter)));
     }
 
     /**
@@ -40,14 +41,14 @@ contract QuestionH {
         * Jobs are executed in exchanged for ETH, the amount of which is determined by the
         * amount of ETH deposited to the contract via this transaction.
      */
-    function submitJob(address target, uint value, bytes calldatas, uint delay) external payable {        
+    function submitJob(address target, uint value, bytes calldata calldatas, uint delay) external payable {        
         /**
             * @dev Prevent jobs that would have this contract create jobs with the bounty
             * coming from this contract's funds.
             *
             * This exploit could be used to drain the contract's funds.
          */
-        require(target !== address(this), "QuestionH::submitJob: INVALID_TARGET");
+        require(target != address(this), "QuestionH::submitJob: INVALID_TARGET");
 
         /**
             * @dev Get job id by hashing job
@@ -56,7 +57,7 @@ contract QuestionH {
             *
             * See executeJob() to see how the on-chain job data is consumed.
          */
-        uint jobId = hashJob(target, value, calldatas, msg.sender);
+        uint jobId = hashJob(target, value, calldatas, delay, msg.sender);
 
         // create job
         Job storage j = jobs[jobId];
@@ -87,8 +88,8 @@ contract QuestionH {
         * 
         * Caller will receive the bounty associated with the job.
     */
-    function executeJob(address target, uint value, bytes calldatas, uint delay) external {
-        uint jobId = hashJob(target, value, calldatas, msg.sender);
+    function executeJob(address target, uint value, bytes calldata calldatas, uint delay) external {
+        uint jobId = hashJob(target, value, calldatas, delay, msg.sender);
         Job storage j = jobs[jobId];
 
         require(j.id > 0, "QuestionH::executeJob: INVALID_JOB");
